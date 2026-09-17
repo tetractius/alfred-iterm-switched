@@ -21,6 +21,31 @@ exact window and tab to the front.
 
 Typing `itw` with no query lists all open tabs.
 
+### Renaming a tab so it's searchable
+
+`itw` matches against each tab's *session name* — the title set by the
+standard terminal title escape sequence (the same mechanism tools like
+Claude Code use to show their status in the tab). To rename a tab so it
+shows up under a new title in `itw`, run this in that tab:
+
+```bash
+printf '\033]0;My New Title\007'
+```
+
+or add a shell function like:
+
+```bash
+tabtitle() { printf '\033]0;%s\007' "$*"; }
+```
+
+and use `tabtitle My New Title`.
+
+Renaming a tab via iTerm2's own **Edit Tab Title…** (`⇧⌘O`) does *not* work
+for this — that sets a title on the tab itself, which is a separate
+property that isn't exposed through any of iTerm2's scripting interfaces
+(AppleScript, JXA, or the official Python API), only through the rendered
+UI. Only the escape-sequence method above is visible to `itw`.
+
 ## How it works
 
 - **Script Filter** (`workflow-src/filter.sh`): runs a JXA (`osascript -l

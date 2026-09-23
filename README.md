@@ -15,9 +15,9 @@ In Alfred, type:
 itw <part of a tab title>
 ```
 
-Every open iTerm2 tab whose title contains that text is listed (window +
-tab position shown as the subtitle). Press Enter on a result to bring that
-exact window and tab to the front.
+Every open iTerm2 tab whose title contains that text is listed (window/tab
+position and current directory shown as the subtitle). Press Enter on a
+result to bring that exact window and tab to the front.
 
 Typing `itw` with no query lists all open tabs.
 
@@ -48,11 +48,12 @@ UI. Only the escape-sequence method above is visible to `itw`.
 
 ## How it works
 
-- **Script Filter** (`workflow-src/filter.sh`): runs a JXA (`osascript -l
-  JavaScript`) snippet that enumerates `Application("iTerm2").windows()` →
-  `.tabs()` → `.currentSession().name()`, filters by the query
+- **Script Filter** (`workflow-src/filter.sh`): runs an AppleScript that
+  enumerates iTerm2's windows/tabs, reading each session's `name` and
+  `session.path` variable (its current directory), filters by the query
   (case-insensitive substring match), and emits Alfred's JSON item format.
-  Each item's `arg` encodes `<windowId>:<tabIndex>`.
+  Each item's `arg` encodes `<windowId>:<tabIndex>`. AppleScript rather than
+  JXA because JXA can't call iTerm2's `variable named` command.
 - **Run Script** (`workflow-src/select.sh`): receives that `arg`, splits out
   the window id and tab index, and runs an AppleScript that does
   `select window id ...` / `select tab ...` and activates iTerm2, bringing

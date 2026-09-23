@@ -60,45 +60,76 @@
 				<key>script</key>
 				<string>#!/bin/bash
 # Alfred Script Filter: list open iTerm2 tabs matching the query.
-osascript -l JavaScript - "$1" &lt;&lt;'JXA'
-function run(argv) {
-  var query = (argv[0] || "").toLowerCase();
-  var app = Application("iTerm2");
-  var items = [];
+# AppleScript (not JXA) because JXA can't bridge iTerm2's "variable named"
+# command (used below to read the tab's current directory).
+osascript - "$1" &lt;&lt;'APPLESCRIPT'
+on escapeJSON(txt)
+	set txt to my replaceText(txt, "\\", "\\\\")
+	set txt to my replaceText(txt, "\"", "\\\"")
+	return txt
+end escapeJSON
 
-  if (!app.running()) {
-    return JSON.stringify({ items: [{ title: "iTerm2 is not running", subtitle: "Launch iTerm2 and try again", valid: false }] });
-  }
+on replaceText(theText, searchStr, replaceStr)
+	set {tid, AppleScript's text item delimiters} to {AppleScript's text item delimiters, searchStr}
+	set theItems to text items of theText
+	set AppleScript's text item delimiters to replaceStr
+	set theText to theItems as text
+	set AppleScript's text item delimiters to tid
+	return theText
+end replaceText
 
-  var windows = app.windows();
-  for (var w = 0; w &lt; windows.length; w++) {
-    var win = windows[w];
-    var winId;
-    try { winId = win.id(); } catch (e) { continue; }
+on run argv
+	set query to ""
+	if (count of argv) &gt; 0 then set query to item 1 of argv
 
-    var tabs = win.tabs();
-    for (var t = 0; t &lt; tabs.length; t++) {
-      var tab = tabs[t];
-      var title = "";
-      try { title = tab.currentSession().name(); } catch (e) { title = "(untitled)"; }
+	set itemsJSON to {}
+	tell application "iTerm2"
+		set wIdx to 0
+		repeat with w in windows
+			set wIdx to wIdx + 1
+			set wid to id of w
+			set tIdx to 0
+			repeat with t in tabs of w
+				set tIdx to tIdx + 1
+				set sName to ""
+				set sPath to ""
+				try
+					tell current session of t
+						set sName to name
+						try
+							set sPath to variable named "session.path"
+						end try
+					end tell
+				end try
 
-      if (query &amp;&amp; title.toLowerCase().indexOf(query) === -1) continue;
+				set matched to true
+				if query is not "" then
+					ignoring case
+						if sName does not contain query then set matched to false
+					end ignoring
+				end if
 
-      items.push({
-        title: title,
-        subtitle: "Window " + (w + 1) + " · Tab " + (t + 1),
-        arg: winId + ":" + (t + 1)
-      });
-    }
-  }
+				if matched then
+					set subt to "Window " &amp; wIdx &amp; " · Tab " &amp; tIdx
+					if sPath is not "" then set subt to subt &amp; " · " &amp; sPath
+					set itemJSON to "{\"title\":\"" &amp; my escapeJSON(sName) &amp; "\",\"subtitle\":\"" &amp; my escapeJSON(subt) &amp; "\",\"arg\":\"" &amp; wid &amp; ":" &amp; tIdx &amp; "\"}"
+					set end of itemsJSON to itemJSON
+				end if
+			end repeat
+		end repeat
+	end tell
 
-  if (items.length === 0) {
-    items.push({ title: "No matching iTerm tabs", subtitle: query ? ("No tab title contains \"" + query + "\"") : "No open iTerm tabs found", valid: false });
-  }
+	if (count of itemsJSON) is 0 then
+		set itemsJSON to {"{\"title\":\"No matching iTerm tabs\",\"valid\":false}"}
+	end if
 
-  return JSON.stringify({ items: items });
-}
-JXA
+	set {tid, AppleScript's text item delimiters} to {AppleScript's text item delimiters, ","}
+	set joined to itemsJSON as text
+	set AppleScript's text item delimiters to tid
+
+	return "{\"items\":[" &amp; joined &amp; "]}"
+end run
+APPLESCRIPT
 </string>
 				<key>scriptargtype</key>
 				<integer>1</integer>
